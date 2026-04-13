@@ -177,6 +177,21 @@ export default function App() {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
+  const {
+    isSending,
+    alertActive,
+    repeatActive,
+    lastActivityAt,
+    lastError,
+    sendAlarm,
+    triggerFromQuery,
+    acknowledgeAlert
+  } = useAlarm({
+    settings,
+    addHistoryEntry,
+    onToast: addToast
+  });
+
   const getOrCreateAlarmAudio = useCallback(() => {
     if (!alarmAudioRef.current) {
       const audio = new Audio(getAlarmToneDataUrl());
@@ -248,21 +263,6 @@ export default function App() {
       addToast({ type: "warning", message: "Browser blocked alarm audio. Tap once on page and try again." });
     }
   }, [addToast, alertActive, armAlarmAudio, startLocalSiren]);
-
-  const {
-    isSending,
-    alertActive,
-    repeatActive,
-    lastActivityAt,
-    lastError,
-    sendAlarm,
-    triggerFromQuery,
-    acknowledgeAlert
-  } = useAlarm({
-    settings,
-    addHistoryEntry,
-    onToast: addToast
-  });
 
   useEffect(() => {
     const goOnline = () => {
