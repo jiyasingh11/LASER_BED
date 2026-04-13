@@ -293,9 +293,14 @@ export default function Settings({
                   className="rounded-xl border border-elder-line/80 bg-black/20 px-4 py-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-elder-text">
-                      {entry.type.replaceAll("_", " ").toUpperCase()}
-                    </p>
+                    {(() => {
+                      const safeType = typeof entry.type === "string" ? entry.type : "test";
+                      return (
+                        <p className="text-sm font-semibold text-elder-text">
+                          {safeType.replaceAll("_", " ").toUpperCase()}
+                        </p>
+                      );
+                    })()}
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs uppercase tracking-[0.1em] ${
                         entry.status === "delivered"
@@ -306,7 +311,7 @@ export default function Settings({
                       {entry.status}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-elder-muted">{new Date(entry.timestamp).toLocaleString()}</p>
+                  <p className="mt-1 text-xs text-elder-muted">{new Date(entry.timestamp || Date.now()).toLocaleString()}</p>
                   <p className="mt-1 text-xs text-elder-muted">Priority: {entry.priority}</p>
                 </article>
               ))}

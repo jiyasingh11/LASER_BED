@@ -36,6 +36,38 @@ function asBoolean(value, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+function normalizeHistoryEntry(entry) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const type = asString(entry.type, "test");
+  const status = entry.status === "failed" ? "failed" : "delivered";
+
+  return {
+    id: asString(entry.id, `${Date.now()}-${Math.random().toString(16).slice(2)}`),
+    timestamp: asString(entry.timestamp, new Date().toISOString()),
+    type,
+    title: asString(entry.title, ""),
+    body: asString(entry.body, ""),
+    priority: asString(entry.priority, "default"),
+    tags: asString(entry.tags, ""),
+    status,
+    error: asString(entry.error, "")
+  };
+}
+
+function normalizeHistory(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((entry) => normalizeHistoryEntry(entry))
+    .filter(Boolean)
+    .slice(0, 50);
+}
+
 function normalizeSettings(input) {
   return {
     ...defaultSettings,
@@ -96,7 +128,7 @@ export function useSettings() {
     }
 
     const stored = safeParse(safeStorageGet(HISTORY_KEY, null), []);
-    return Array.isArray(stored) ? stored.slice(0, 50) : [];
+    return normalizeHistory(stored);
   });
 
   useEffect(() => {
@@ -134,7 +166,12 @@ export function useSettings() {
   }, []);
 
   const addHistoryEntry = useCallback((entry) => {
-    setHistory((prev) => [entry, ...prev].slice(0, 50));
+    const normalized = normalizeHistoryEntry(entry);
+    if (!normalized) {
+      return;
+    }
+
+    setHistory((prev) => [normalized, ...normalizeHistory(prev)].slice(0, 50));
   }, []);
 
   const clearHistory = useCallback(() => {

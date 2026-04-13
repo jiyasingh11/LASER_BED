@@ -24,6 +24,7 @@ export default function ActivityLog({ entries }) {
         <ul className="mt-4 space-y-3">
           {entries.map((entry) => {
             const isSuccess = entry.status === "delivered";
+            const safeType = typeof entry.type === "string" ? entry.type : "test";
             return (
               <li
                 key={entry.id}
@@ -31,7 +32,7 @@ export default function ActivityLog({ entries }) {
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-elder-text">
-                    {TYPE_LABEL[entry.type] || entry.type.replaceAll("_", " ")}
+                    {TYPE_LABEL[safeType] || safeType.replaceAll("_", " ")}
                   </p>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-[0.1em] ${
@@ -43,7 +44,7 @@ export default function ActivityLog({ entries }) {
                     {entry.status}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-elder-muted">{new Date(entry.timestamp).toLocaleString()}</p>
+                <p className="mt-1 text-xs text-elder-muted">{new Date(entry.timestamp || Date.now()).toLocaleString()}</p>
               </li>
             );
           })}
