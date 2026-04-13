@@ -1,0 +1,23 @@
+{
+  "name": "ElderGuard",
+  "short_name": "ElderGuard",
+  "description": "Patient bed-exit alarm monitoring with instant ntfy push notifications.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050915",
+  "theme_color": "#050915",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
