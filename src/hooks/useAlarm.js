@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const ALERT_TYPES = ["bed_exit", "fall", "inactivity"];
+const DEFAULT_REPEAT_MS = 30000;
+const RINGING_MODE_REPEAT_MS = 10000;
 
 export const ALARM_PRESETS = {
   bed_exit: {
@@ -51,10 +53,6 @@ const TRIGGER_MAP = {
   test: "test"
 };
 
-function shouldOverrideToMax(type, maxPriorityEnabled) {
-  return maxPriorityEnabled && ALERT_TYPES.includes(type);
-}
-
 export function useAlarm({ settings, addHistoryEntry, onToast }) {
   const [isSending, setIsSending] = useState(false);
   const [alertActive, setAlertActive] = useState(false);
@@ -95,13 +93,18 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
       }
 
       const patientName = settings.patientName?.trim() || "Patient";
-      const priority = shouldOverrideToMax(type, settings.maxPriority)
+      const isCriticalAlert = ALERT_TYPES.includes(type);
+      const forceMaxPriority = isCriticalAlert && (settings.maxPriority || settings.ringingMode);
+      const priority = forceMaxPriority
         ? "max"
         : preset.priority;
 
       const title = options.isRepeat ? `${preset.title} (REPEAT)` : preset.title;
       const body = preset.body(patientName);
       const endpoint = `https://ntfy.sh/${encodeURIComponent(topic)}`;
+      const tags = forceMaxPriority
+        ? `${preset.tags},alarm_clock`
+        : preset.tags;
 
       setIsSending(true);
 
@@ -112,7 +115,7 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
             Title: title,
             Priority: priority,
             "X-Priority": priority,
-            Tags: preset.tags,
+            Tags: tags,
             Click: window.location.origin,
             "Content-Type": "text/plain"
           },
@@ -131,7 +134,7 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
           title,
           body,
           priority,
-          tags: preset.tags,
+          tags,
           status: "delivered"
         };
 
@@ -145,9 +148,11 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
             type === "test"
               ? " (test uses low priority and may be silent on phone)"
               : "";
+          const ringingHint =
+            forceMaxPriority ? " (ringing mode active)" : "";
           onToast?.({
             type: "success",
-            message: `${baseMessage}${lowPriorityHint}`
+            message: `${baseMessage}${lowPriorityHint}${ringingHint}`
           });
         }
 
@@ -162,7 +167,7 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
           title,
           body,
           priority,
-          tags: preset.tags,
+          tags,
           status: "failed",
           error: message
         };
@@ -179,17 +184,24 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
         setIsSending(false);
       }
     },
-    [addHistoryEntry, onToast, settings.maxPriority, settings.patientName, settings.topic]
+    [
+      addHistoryEntry,
+      onToast,
+      settings.maxPriority,
+      settings.patientName,
+      settings.ringingMode,
+      settings.topic
+    ]
   );
 
   const startRepeat = useCallback(
-    (type) => {
+    (type, intervalMs = DEFAULT_REPEAT_MS) => {
       stopRepeat();
 
       repeatTypeRef.current = type;
       repeatTimerRef.current = window.setInterval(() => {
         sendPreset(type, { isRepeat: true, silentToast: true });
-      }, 30000);
+      }, intervalMs);
       setRepeatActive(true);
     },
     [sendPreset, stopRepeat]
@@ -205,8 +217,11 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
 
       if (ALERT_TYPES.includes(type)) {
         setAlertActive(true);
-        if (settings.repeatAlarm) {
-          startRepeat(type);
+        if (settings.repeatAlarm || settings.ringingMode) {
+          const repeatMs = settings.ringingMode
+            ? RINGING_MODE_REPEAT_MS
+            : DEFAULT_REPEAT_MS;
+          startRepeat(type, repeatMs);
         }
       }
 
@@ -217,7 +232,7 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
 
       return result;
     },
-    [sendPreset, settings.repeatAlarm, startRepeat, stopRepeat]
+    [sendPreset, settings.repeatAlarm, settings.ringingMode, startRepeat, stopRepeat]
   );
 
   const acknowledgeAlert = useCallback(() => {

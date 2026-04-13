@@ -43,7 +43,7 @@ export default function Dashboard({
     {
       type: "bed_exit",
       label: "Bed Exit",
-      hint: "urgent",
+      hint: settings.ringingMode || settings.maxPriority ? "max" : "urgent",
       className: "border-red-500/40 bg-red-600/10 text-red-100"
     },
     {
@@ -55,7 +55,7 @@ export default function Dashboard({
     {
       type: "inactivity",
       label: "Inactivity Alert",
-      hint: "high",
+      hint: settings.ringingMode || settings.maxPriority ? "max" : "high",
       className: "border-amber-500/40 bg-amber-500/10 text-amber-100"
     },
     {
@@ -178,6 +178,19 @@ export default function Dashboard({
             <div className="mt-4 space-y-3">
               <label className="flex items-center justify-between rounded-xl border border-elder-line bg-black/20 px-3 py-3">
                 <span>
+                  <p className="font-semibold text-elder-text">Ringing Alarm Mode</p>
+                  <p className="text-xs text-elder-muted">Forces max priority and repeats every 10 seconds until acknowledged.</p>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.ringingMode}
+                  onChange={(event) => updateSettings({ ringingMode: event.target.checked })}
+                  className="h-5 w-5 accent-red-500"
+                />
+              </label>
+
+              <label className="flex items-center justify-between rounded-xl border border-elder-line bg-black/20 px-3 py-3">
+                <span>
                   <p className="font-semibold text-elder-text">Max Priority</p>
                   <p className="text-xs text-elder-muted">Override alert priority to max for critical alarms.</p>
                 </span>
@@ -205,7 +218,7 @@ export default function Dashboard({
 
             {repeatActive && (
               <p className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
-                Repeat alarm is currently active.
+                Repeat alarm is active. Ringing mode repeats every 10 seconds.
               </p>
             )}
           </section>

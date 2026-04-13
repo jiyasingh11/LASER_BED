@@ -9,6 +9,7 @@ const defaultSettings = {
   caretakerPhone: "",
   repeatAlarm: false,
   maxPriority: false,
+  ringingMode: true,
   connectionVerified: false,
   preferredSound: "standard",
   createdAt: null,

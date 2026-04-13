@@ -66,6 +66,7 @@ export default function Settings({
   const [patientName, setPatientName] = useState(settings.patientName || "");
   const [caretakerPhone, setCaretakerPhone] = useState(settings.caretakerPhone || "");
   const [sound, setSound] = useState(settings.preferredSound || "standard");
+  const [ringingMode, setRingingMode] = useState(settings.ringingMode ?? true);
 
   const handleSave = (event) => {
     event.preventDefault();
@@ -74,6 +75,7 @@ export default function Settings({
       topic: topic.trim(),
       patientName: patientName.trim(),
       caretakerPhone: caretakerPhone.trim(),
+      ringingMode,
       preferredSound: sound
     });
 
@@ -164,6 +166,19 @@ export default function Settings({
                   Play Preview
                 </button>
               </div>
+            </label>
+
+            <label className="flex items-center justify-between rounded-xl border border-elder-line bg-black/20 px-3 py-3">
+              <span>
+                <p className="font-semibold text-elder-text">Ringing Alarm Mode</p>
+                <p className="text-xs text-elder-muted">Use max priority and frequent repeats for critical alerts.</p>
+              </span>
+              <input
+                type="checkbox"
+                checked={ringingMode}
+                onChange={(event) => setRingingMode(event.target.checked)}
+                className="h-5 w-5 accent-red-500"
+              />
             </label>
 
             <div className="flex flex-wrap gap-3 pt-1">
