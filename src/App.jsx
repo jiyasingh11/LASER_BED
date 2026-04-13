@@ -6,6 +6,96 @@ import Settings from "./pages/Settings";
 import { useSettings } from "./hooks/useSettings";
 import { useAlarm } from "./hooks/useAlarm";
 
+let cachedAlarmToneDataUrl = null;
+
+function getAlarmToneDataUrl() {
+  if (cachedAlarmToneDataUrl) {
+    return cachedAlarmToneDataUrl;
+  }
+
+  const sampleRate = 44100;
+  const durationSeconds = 2.4;
+  const sampleCount = Math.floor(sampleRate * durationSeconds);
+  const pcm = new Int16Array(sampleCount);
+
+  let phasePrimary = 0;
+  let phaseSecondary = 0;
+
+  const ringEnvelope = (timeInCycle) => {
+    if (timeInCycle < 0.36) {
+      const attack = Math.min(1, timeInCycle / 0.02);
+      const release = Math.min(1, (0.36 - timeInCycle) / 0.08);
+      return attack * release;
+    }
+
+    if (timeInCycle >= 0.52 && timeInCycle < 0.9) {
+      const t = timeInCycle - 0.52;
+      const attack = Math.min(1, t / 0.02);
+      const release = Math.min(1, (0.38 - t) / 0.1);
+      return attack * release;
+    }
+
+    return 0;
+  };
+
+  for (let i = 0; i < sampleCount; i += 1) {
+    const t = i / sampleRate;
+    const cycle = t % 1.2;
+    const envelope = ringEnvelope(cycle);
+
+    const freqPrimary = 840;
+    const freqSecondary = 1260;
+    phasePrimary += (2 * Math.PI * freqPrimary) / sampleRate;
+    phaseSecondary += (2 * Math.PI * freqSecondary) / sampleRate;
+
+    const carrier =
+      Math.sin(phasePrimary) * 0.72 +
+      Math.sin(phaseSecondary) * 0.23 +
+      Math.sin(phasePrimary * 0.5) * 0.08;
+
+    const sample = carrier * envelope;
+    pcm[i] = Math.max(-1, Math.min(1, sample)) * 32767;
+  }
+
+  const buffer = new ArrayBuffer(44 + pcm.length * 2);
+  const view = new DataView(buffer);
+
+  const writeAscii = (offset, text) => {
+    for (let i = 0; i < text.length; i += 1) {
+      view.setUint8(offset + i, text.charCodeAt(i));
+    }
+  };
+
+  writeAscii(0, "RIFF");
+  view.setUint32(4, 36 + pcm.length * 2, true);
+  writeAscii(8, "WAVE");
+  writeAscii(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeAscii(36, "data");
+  view.setUint32(40, pcm.length * 2, true);
+
+  let offset = 44;
+  for (let i = 0; i < pcm.length; i += 1) {
+    view.setInt16(offset, pcm[i], true);
+    offset += 2;
+  }
+
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  cachedAlarmToneDataUrl = `data:audio/wav;base64,${btoa(binary)}`;
+  return cachedAlarmToneDataUrl;
+}
+
 function ToastStack({ toasts, dismissToast }) {
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-[min(92vw,24rem)] flex-col gap-2">
@@ -64,8 +154,7 @@ export default function App() {
     return params.get("trigger");
   });
 
-  const audioContextRef = useRef(null);
-  const sirenTimerRef = useRef(null);
+  const alarmAudioRef = useRef(null);
   const warnedRef = useRef(false);
   const audioArmedRef = useRef(false);
 
@@ -88,91 +177,60 @@ export default function App() {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  const playSirenBurst = useCallback((ctx) => {
-    const startAt = ctx.currentTime;
-    const duration = 0.7;
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    oscillator.type = "square";
-    oscillator.frequency.setValueAtTime(760, startAt);
-    oscillator.frequency.linearRampToValueAtTime(1100, startAt + duration / 2);
-    oscillator.frequency.linearRampToValueAtTime(760, startAt + duration);
-
-    gain.gain.setValueAtTime(0.0001, startAt);
-    gain.gain.exponentialRampToValueAtTime(0.22, startAt + 0.04);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
-
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-
-    oscillator.start(startAt);
-    oscillator.stop(startAt + duration);
-  }, []);
-
-  const ensureAudioContext = useCallback(async () => {
-    const AudioContextRef = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextRef) {
-      return null;
+  const getOrCreateAlarmAudio = useCallback(() => {
+    if (!alarmAudioRef.current) {
+      const audio = new Audio(getAlarmToneDataUrl());
+      audio.loop = true;
+      audio.preload = "auto";
+      audio.volume = 1;
+      alarmAudioRef.current = audio;
     }
 
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContextRef();
-    }
-
-    const ctx = audioContextRef.current;
-
-    if (ctx.state === "suspended") {
-      try {
-        await ctx.resume();
-      } catch {
-        return null;
-      }
-    }
-
-    return ctx.state === "running" ? ctx : null;
+    return alarmAudioRef.current;
   }, []);
 
   const armAlarmAudio = useCallback(async () => {
-    const ctx = await ensureAudioContext();
-    if (!ctx) {
+    try {
+      const audio = getOrCreateAlarmAudio();
+      audio.muted = true;
+      audio.currentTime = 0;
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+
+      audioArmedRef.current = true;
+      setLocalSirenBlocked(false);
+      warnedRef.current = false;
+      return true;
+    } catch {
       return false;
     }
-
-    audioArmedRef.current = true;
-    setLocalSirenBlocked(false);
-    warnedRef.current = false;
-    return true;
-  }, [ensureAudioContext]);
+  }, [getOrCreateAlarmAudio]);
 
   const stopLocalSiren = useCallback(() => {
-    if (sirenTimerRef.current) {
-      clearInterval(sirenTimerRef.current);
-      sirenTimerRef.current = null;
+    const audio = alarmAudioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
     }
   }, []);
 
   const startLocalSiren = useCallback(async () => {
-    if (sirenTimerRef.current) {
-      return true;
-    }
-
     if (!audioArmedRef.current) {
       return false;
     }
 
-    const ctx = await ensureAudioContext();
-    if (!ctx) {
+    try {
+      const audio = getOrCreateAlarmAudio();
+      audio.muted = false;
+      audio.volume = 1;
+      await audio.play();
+      return true;
+    } catch {
       return false;
     }
-
-    playSirenBurst(ctx);
-    sirenTimerRef.current = window.setInterval(() => {
-      playSirenBurst(ctx);
-    }, 900);
-
-    return true;
-  }, [ensureAudioContext, playSirenBurst]);
+  }, [getOrCreateAlarmAudio]);
 
   const enableLocalAlarmAudio = useCallback(async () => {
     const armed = await armAlarmAudio();
@@ -281,13 +339,12 @@ export default function App() {
   useEffect(() => {
     return () => {
       stopLocalSiren();
-      const ctx = audioContextRef.current;
-      if (ctx) {
-        ctx.close().catch(() => {});
-        audioContextRef.current = null;
+      if (alarmAudioRef.current) {
+        alarmAudioRef.current.src = "";
+        alarmAudioRef.current = null;
       }
     };
-  }, [audioContextRef, stopLocalSiren]);
+  }, [stopLocalSiren]);
 
   useEffect(() => {
     if (!pendingTrigger || !hasCompletedSetup) {
