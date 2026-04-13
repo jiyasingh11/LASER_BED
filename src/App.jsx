@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Setup from "./pages/Setup";
@@ -58,10 +58,15 @@ export default function App() {
 
   const [toasts, setToasts] = useState([]);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [localSirenBlocked, setLocalSirenBlocked] = useState(false);
   const [pendingTrigger, setPendingTrigger] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("trigger");
   });
+
+  const audioContextRef = useRef(null);
+  const sirenTimerRef = useRef(null);
+  const warnedRef = useRef(false);
 
   const addToast = useCallback((toast) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -81,6 +86,87 @@ export default function App() {
   const dismissToast = useCallback((id) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
+
+  const playSirenBurst = useCallback((ctx) => {
+    const startAt = ctx.currentTime;
+    const duration = 0.7;
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    oscillator.type = "square";
+    oscillator.frequency.setValueAtTime(760, startAt);
+    oscillator.frequency.linearRampToValueAtTime(1100, startAt + duration / 2);
+    oscillator.frequency.linearRampToValueAtTime(760, startAt + duration);
+
+    gain.gain.setValueAtTime(0.0001, startAt);
+    gain.gain.exponentialRampToValueAtTime(0.22, startAt + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+
+    oscillator.start(startAt);
+    oscillator.stop(startAt + duration);
+  }, []);
+
+  const stopLocalSiren = useCallback(() => {
+    if (sirenTimerRef.current) {
+      clearInterval(sirenTimerRef.current);
+      sirenTimerRef.current = null;
+    }
+
+    const ctx = audioContextRef.current;
+    if (ctx && ctx.state === "running") {
+      ctx.suspend().catch(() => {});
+    }
+  }, [audioContextRef, sirenTimerRef]);
+
+  const startLocalSiren = useCallback(async () => {
+    if (sirenTimerRef.current) {
+      return true;
+    }
+
+    const AudioContextRef = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextRef) {
+      return false;
+    }
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextRef();
+    }
+
+    const ctx = audioContextRef.current;
+
+    if (ctx.state === "suspended") {
+      try {
+        await ctx.resume();
+      } catch {
+        return false;
+      }
+    }
+
+    if (ctx.state !== "running") {
+      return false;
+    }
+
+    playSirenBurst(ctx);
+    sirenTimerRef.current = window.setInterval(() => {
+      playSirenBurst(ctx);
+    }, 900);
+
+    return true;
+  }, [audioContextRef, playSirenBurst, sirenTimerRef]);
+
+  const enableLocalAlarmAudio = useCallback(async () => {
+    const ok = await startLocalSiren();
+    if (ok) {
+      setLocalSirenBlocked(false);
+      warnedRef.current = false;
+      addToast({ type: "success", message: "Alarm audio enabled on this device." });
+    } else {
+      addToast({ type: "warning", message: "Browser blocked alarm audio. Tap once on page and try again." });
+    }
+  }, [addToast, startLocalSiren, warnedRef]);
 
   const {
     isSending,
@@ -118,6 +204,55 @@ export default function App() {
   }, [addToast]);
 
   useEffect(() => {
+    let mounted = true;
+
+    const syncSiren = async () => {
+      if (alertActive && settings.localAlarmSound) {
+        const ok = await startLocalSiren();
+        if (!mounted) {
+          return;
+        }
+
+        if (!ok) {
+          setLocalSirenBlocked(true);
+          if (!warnedRef.current) {
+            warnedRef.current = true;
+            addToast({
+              type: "warning",
+              message: "Alarm sound blocked by browser. Tap Enable Alarm Audio."
+            });
+          }
+          return;
+        }
+
+        warnedRef.current = false;
+        setLocalSirenBlocked(false);
+      } else {
+        stopLocalSiren();
+        warnedRef.current = false;
+        setLocalSirenBlocked(false);
+      }
+    };
+
+    syncSiren();
+
+    return () => {
+      mounted = false;
+    };
+  }, [addToast, alertActive, settings.localAlarmSound, startLocalSiren, stopLocalSiren, warnedRef]);
+
+  useEffect(() => {
+    return () => {
+      stopLocalSiren();
+      const ctx = audioContextRef.current;
+      if (ctx) {
+        ctx.close().catch(() => {});
+        audioContextRef.current = null;
+      }
+    };
+  }, [audioContextRef, stopLocalSiren]);
+
+  useEffect(() => {
     if (!pendingTrigger || !hasCompletedSetup) {
       return;
     }
@@ -147,7 +282,9 @@ export default function App() {
       acknowledgeAlert,
       lastActivityAt,
       isOnline,
-      lastError
+      lastError,
+      localSirenBlocked,
+      enableLocalAlarmAudio
     }),
     [
       settings,
@@ -160,7 +297,9 @@ export default function App() {
       acknowledgeAlert,
       lastActivityAt,
       isOnline,
-      lastError
+      lastError,
+      localSirenBlocked,
+      enableLocalAlarmAudio
     ]
   );
 

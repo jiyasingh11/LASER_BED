@@ -22,7 +22,9 @@ export default function Dashboard({
   acknowledgeAlert,
   lastActivityAt,
   isOnline,
-  lastError
+  lastError,
+  localSirenBlocked,
+  enableLocalAlarmAudio
 }) {
   const latestDelivered = useMemo(
     () => history.find((item) => item.status === "delivered"),
@@ -149,6 +151,16 @@ export default function Dashboard({
                   I&apos;m Aware
                 </button>
               )}
+
+              {alertActive && localSirenBlocked && (
+                <button
+                  type="button"
+                  onClick={enableLocalAlarmAudio}
+                  className="rounded-xl border border-fuchsia-500/40 bg-fuchsia-500/10 px-4 py-2.5 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-500/20"
+                >
+                  Enable Alarm Audio
+                </button>
+              )}
             </div>
 
             <p className="mt-3 text-xs text-elder-muted">
@@ -227,6 +239,19 @@ export default function Dashboard({
                   className="h-5 w-5 accent-red-500"
                 />
               </label>
+
+              <label className="flex items-center justify-between rounded-xl border border-elder-line bg-black/20 px-3 py-3">
+                <span>
+                  <p className="font-semibold text-elder-text">Local Continuous Siren</p>
+                  <p className="text-xs text-elder-muted">Play continuous in-app alarm tone until I&apos;m Aware or All Clear.</p>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.localAlarmSound ?? true}
+                  onChange={(event) => updateSettings({ localAlarmSound: event.target.checked })}
+                  className="h-5 w-5 accent-red-500"
+                />
+              </label>
             </div>
 
             {repeatActive && (
@@ -238,6 +263,12 @@ export default function Dashboard({
             {settings.phoneCallEscalation && (
               <p className="mt-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm text-sky-100">
                 Phone call escalation enabled. Critical alerts will attempt call-based ringtone.
+              </p>
+            )}
+
+            {settings.localAlarmSound && (
+              <p className="mt-3 rounded-xl border border-fuchsia-500/40 bg-fuchsia-500/10 px-3 py-2 text-sm text-fuchsia-100">
+                Local continuous siren enabled for this device.
               </p>
             )}
           </section>

@@ -13,6 +13,7 @@ const defaultSettings = {
   repeatAlarm: false,
   maxPriority: false,
   ringingMode: true,
+  localAlarmSound: true,
   connectionVerified: false,
   preferredSound: "standard",
   createdAt: null,

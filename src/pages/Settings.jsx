@@ -72,6 +72,7 @@ export default function Settings({
   const [phoneCallEscalation, setPhoneCallEscalation] = useState(
     settings.phoneCallEscalation || false
   );
+  const [localAlarmSound, setLocalAlarmSound] = useState(settings.localAlarmSound ?? true);
   const [sound, setSound] = useState(settings.preferredSound || "standard");
   const [ringingMode, setRingingMode] = useState(settings.ringingMode ?? true);
 
@@ -86,6 +87,7 @@ export default function Settings({
       ntfyAccessToken: ntfyAccessToken.trim(),
       phoneCallEscalation,
       ringingMode,
+      localAlarmSound,
       preferredSound: sound
     });
 
@@ -221,6 +223,19 @@ export default function Settings({
                 type="checkbox"
                 checked={phoneCallEscalation}
                 onChange={(event) => setPhoneCallEscalation(event.target.checked)}
+                className="h-5 w-5 accent-red-500"
+              />
+            </label>
+
+            <label className="flex items-center justify-between rounded-xl border border-elder-line bg-black/20 px-3 py-3">
+              <span>
+                <p className="font-semibold text-elder-text">Local Continuous Siren</p>
+                <p className="text-xs text-elder-muted">Play continuous alarm tone in this app while alert is active.</p>
+              </span>
+              <input
+                type="checkbox"
+                checked={localAlarmSound}
+                onChange={(event) => setLocalAlarmSound(event.target.checked)}
                 className="h-5 w-5 accent-red-500"
               />
             </label>
