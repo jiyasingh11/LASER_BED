@@ -158,7 +158,7 @@ export default function Dashboard({
                   onClick={enableLocalAlarmAudio}
                   className="rounded-xl border border-fuchsia-500/40 bg-fuchsia-500/10 px-4 py-2.5 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-500/20"
                 >
-                  Arm Alarm Audio
+                  Arm Ringtone Audio
                 </button>
               )}
 
@@ -278,7 +278,7 @@ export default function Dashboard({
 
             {settings.localAlarmSound && (
               <p className="mt-3 rounded-xl border border-fuchsia-500/40 bg-fuchsia-500/10 px-3 py-2 text-sm text-fuchsia-100">
-                Local continuous siren enabled. Tap Arm Alarm Audio once after opening app.
+                Local continuous siren enabled. Tap Arm Ringtone Audio once after opening app.
               </p>
             )}
           </section>

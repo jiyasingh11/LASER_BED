@@ -244,6 +244,10 @@ export default function Settings({
               Note: ntfy phone-call escalation requires verified phone and account token support on your ntfy plan.
             </p>
 
+            <p className="rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">
+              Android integration: In ntfy app channel settings, set High/Urgent/Max channels to a ringtone sound and enable DND override.
+            </p>
+
             <div className="flex flex-wrap gap-3 pt-1">
               <button
                 type="submit"
