@@ -27,12 +27,14 @@ export default function Setup({ settings, saveSetup, onToast }) {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
-          Title: "TEST - ElderGuard Setup",
-          Priority: "low",
-          Tags: "white_check_mark,gear",
+          Title: "SOUND CHECK - ElderGuard Setup",
+          Priority: "high",
+          "X-Priority": "high",
+          Tags: "white_check_mark,speaker",
+          Click: window.location.origin,
           "Content-Type": "text/plain"
         },
-        body: `Setup verification ping for ${patient}. If you see this on phone, ElderGuard is connected.`
+        body: `Setup verification alert for ${patient}. If this arrives silently, enable notification sound in the ntfy app for this topic.`
       });
 
       if (!response.ok) {
@@ -40,7 +42,10 @@ export default function Setup({ settings, saveSetup, onToast }) {
       }
 
       setIsVerified(true);
-      onToast?.({ type: "success", message: "Connection verified. Check your phone app." });
+      onToast?.({
+        type: "success",
+        message: "Connection verified. If no sound played, update ntfy app notification channel settings."
+      });
     } catch (error) {
       setIsVerified(false);
       onToast?.({ type: "error", message: "Verification failed. Re-check topic and internet." });
@@ -151,8 +156,8 @@ export default function Setup({ settings, saveSetup, onToast }) {
             <ol className="mt-4 space-y-3 text-sm text-elder-muted">
               <li>1. Install the ntfy app from Play Store or App Store.</li>
               <li>2. Open app and subscribe to your topic name exactly as entered here.</li>
-              <li>3. Keep notification permission enabled for urgent alarms.</li>
-              <li>4. For critical alerts, enable high priority notifications in ntfy app settings.</li>
+              <li>3. Keep notification permission and sound enabled for this topic.</li>
+              <li>4. In ntfy app settings, set High/Urgent/Max priorities to play sound.</li>
             </ol>
 
             <div className="mt-5 rounded-xl border border-elder-line bg-black/25 p-4 text-xs text-elder-muted">

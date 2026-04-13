@@ -111,7 +111,9 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
           headers: {
             Title: title,
             Priority: priority,
+            "X-Priority": priority,
             Tags: preset.tags,
+            Click: window.location.origin,
             "Content-Type": "text/plain"
           },
           body
@@ -138,9 +140,14 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
         setLastError("");
 
         if (!options.silentToast) {
+          const baseMessage = `${preset.label} sent successfully`;
+          const lowPriorityHint =
+            type === "test"
+              ? " (test uses low priority and may be silent on phone)"
+              : "";
           onToast?.({
             type: "success",
-            message: `${preset.label} sent successfully`
+            message: `${baseMessage}${lowPriorityHint}`
           });
         }
 

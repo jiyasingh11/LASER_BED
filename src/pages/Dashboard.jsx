@@ -150,6 +150,10 @@ export default function Dashboard({
                 </button>
               )}
             </div>
+
+            <p className="mt-3 text-xs text-elder-muted">
+              Test Signal uses low priority and may be silent on some phones. Use Bed Exit/Fall to validate audible alarm behavior.
+            </p>
           </section>
 
           <ActivityLog entries={recentEntries} />
