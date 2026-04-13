@@ -67,6 +67,7 @@ export default function App() {
   const audioContextRef = useRef(null);
   const sirenTimerRef = useRef(null);
   const warnedRef = useRef(false);
+  const audioArmedRef = useRef(false);
 
   const addToast = useCallback((toast) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -109,26 +110,10 @@ export default function App() {
     oscillator.stop(startAt + duration);
   }, []);
 
-  const stopLocalSiren = useCallback(() => {
-    if (sirenTimerRef.current) {
-      clearInterval(sirenTimerRef.current);
-      sirenTimerRef.current = null;
-    }
-
-    const ctx = audioContextRef.current;
-    if (ctx && ctx.state === "running") {
-      ctx.suspend().catch(() => {});
-    }
-  }, [audioContextRef, sirenTimerRef]);
-
-  const startLocalSiren = useCallback(async () => {
-    if (sirenTimerRef.current) {
-      return true;
-    }
-
+  const ensureAudioContext = useCallback(async () => {
     const AudioContextRef = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextRef) {
-      return false;
+      return null;
     }
 
     if (!audioContextRef.current) {
@@ -141,11 +126,43 @@ export default function App() {
       try {
         await ctx.resume();
       } catch {
-        return false;
+        return null;
       }
     }
 
-    if (ctx.state !== "running") {
+    return ctx.state === "running" ? ctx : null;
+  }, []);
+
+  const armAlarmAudio = useCallback(async () => {
+    const ctx = await ensureAudioContext();
+    if (!ctx) {
+      return false;
+    }
+
+    audioArmedRef.current = true;
+    setLocalSirenBlocked(false);
+    warnedRef.current = false;
+    return true;
+  }, [ensureAudioContext]);
+
+  const stopLocalSiren = useCallback(() => {
+    if (sirenTimerRef.current) {
+      clearInterval(sirenTimerRef.current);
+      sirenTimerRef.current = null;
+    }
+  }, []);
+
+  const startLocalSiren = useCallback(async () => {
+    if (sirenTimerRef.current) {
+      return true;
+    }
+
+    if (!audioArmedRef.current) {
+      return false;
+    }
+
+    const ctx = await ensureAudioContext();
+    if (!ctx) {
       return false;
     }
 
@@ -155,18 +172,24 @@ export default function App() {
     }, 900);
 
     return true;
-  }, [audioContextRef, playSirenBurst, sirenTimerRef]);
+  }, [ensureAudioContext, playSirenBurst]);
 
   const enableLocalAlarmAudio = useCallback(async () => {
-    const ok = await startLocalSiren();
+    const armed = await armAlarmAudio();
+    if (!armed) {
+      addToast({ type: "warning", message: "Browser blocked alarm audio. Tap once on page and try again." });
+      return;
+    }
+
+    const ok = alertActive ? await startLocalSiren() : true;
     if (ok) {
       setLocalSirenBlocked(false);
       warnedRef.current = false;
-      addToast({ type: "success", message: "Alarm audio enabled on this device." });
+      addToast({ type: "success", message: "Alarm audio armed for this device." });
     } else {
       addToast({ type: "warning", message: "Browser blocked alarm audio. Tap once on page and try again." });
     }
-  }, [addToast, startLocalSiren, warnedRef]);
+  }, [addToast, alertActive, armAlarmAudio, startLocalSiren]);
 
   const {
     isSending,
@@ -202,6 +225,20 @@ export default function App() {
       window.removeEventListener("offline", goOffline);
     };
   }, [addToast]);
+
+  useEffect(() => {
+    const armFromGesture = () => {
+      armAlarmAudio();
+    };
+
+    window.addEventListener("pointerdown", armFromGesture);
+    window.addEventListener("keydown", armFromGesture);
+
+    return () => {
+      window.removeEventListener("pointerdown", armFromGesture);
+      window.removeEventListener("keydown", armFromGesture);
+    };
+  }, [armAlarmAudio]);
 
   useEffect(() => {
     let mounted = true;

@@ -170,6 +170,7 @@ export default function Setup({ settings, saveSetup, onToast }) {
               <li>2. Open app and subscribe to your topic name exactly as entered here.</li>
               <li>3. Keep notification permission and sound enabled for this topic.</li>
               <li>4. In ntfy app settings, set High/Urgent/Max priorities to play sound.</li>
+              <li>5. In ElderGuard dashboard, tap Arm Alarm Audio once to enable continuous siren playback in browser.</li>
             </ol>
 
             <div className="mt-5 rounded-xl border border-elder-line bg-black/25 p-4 text-xs text-elder-muted">
