@@ -28,17 +28,66 @@ function safeParse(raw, fallback) {
   }
 }
 
+function asString(value, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+
+function asBoolean(value, fallback = false) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function normalizeSettings(input) {
+  return {
+    ...defaultSettings,
+    topic: asString(input?.topic, defaultSettings.topic),
+    patientName: asString(input?.patientName, defaultSettings.patientName),
+    caretakerPhone: asString(input?.caretakerPhone, defaultSettings.caretakerPhone),
+    escalationPhone: asString(input?.escalationPhone, defaultSettings.escalationPhone),
+    ntfyAccessToken: asString(input?.ntfyAccessToken, defaultSettings.ntfyAccessToken),
+    phoneCallEscalation: asBoolean(input?.phoneCallEscalation, defaultSettings.phoneCallEscalation),
+    repeatAlarm: asBoolean(input?.repeatAlarm, defaultSettings.repeatAlarm),
+    maxPriority: asBoolean(input?.maxPriority, defaultSettings.maxPriority),
+    ringingMode: asBoolean(input?.ringingMode, defaultSettings.ringingMode),
+    localAlarmSound: asBoolean(input?.localAlarmSound, defaultSettings.localAlarmSound),
+    connectionVerified: asBoolean(input?.connectionVerified, defaultSettings.connectionVerified),
+    preferredSound: asString(input?.preferredSound, defaultSettings.preferredSound),
+    createdAt: typeof input?.createdAt === "string" ? input.createdAt : null,
+    updatedAt: typeof input?.updatedAt === "string" ? input.updatedAt : null
+  };
+}
+
+function safeStorageGet(key, fallback) {
+  try {
+    return window.localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage failures (private mode/quota) and keep app functional.
+  }
+}
+
+function safeStorageRemove(key) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures and keep app functional.
+  }
+}
+
 export function useSettings() {
   const [settings, setSettings] = useState(() => {
     if (typeof window === "undefined") {
       return defaultSettings;
     }
 
-    const stored = safeParse(window.localStorage.getItem(SETTINGS_KEY), {});
-    return {
-      ...defaultSettings,
-      ...stored
-    };
+    const stored = safeParse(safeStorageGet(SETTINGS_KEY, null), {});
+    return normalizeSettings(stored);
   });
 
   const [history, setHistory] = useState(() => {
@@ -46,40 +95,42 @@ export function useSettings() {
       return [];
     }
 
-    const stored = safeParse(window.localStorage.getItem(HISTORY_KEY), []);
+    const stored = safeParse(safeStorageGet(HISTORY_KEY, null), []);
     return Array.isArray(stored) ? stored.slice(0, 50) : [];
   });
 
   useEffect(() => {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    safeStorageSet(SETTINGS_KEY, JSON.stringify(settings));
   }, [settings]);
 
   useEffect(() => {
-    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    safeStorageSet(HISTORY_KEY, JSON.stringify(history));
   }, [history]);
 
   const hasCompletedSetup = useMemo(() => {
-    return Boolean(settings.topic.trim() && settings.patientName.trim());
+    return Boolean(asString(settings.topic).trim() && asString(settings.patientName).trim());
   }, [settings.patientName, settings.topic]);
 
   const updateSettings = useCallback((patch) => {
     setSettings((prev) => {
       const resolvedPatch = typeof patch === "function" ? patch(prev) : patch;
-      return {
+      return normalizeSettings({
         ...prev,
         ...resolvedPatch,
         updatedAt: new Date().toISOString()
-      };
+      });
     });
   }, []);
 
   const saveSetup = useCallback((setupValues) => {
-    setSettings((prev) => ({
-      ...prev,
-      ...setupValues,
-      createdAt: prev.createdAt ?? new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }));
+    setSettings((prev) =>
+      normalizeSettings({
+        ...prev,
+        ...setupValues,
+        createdAt: prev.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })
+    );
   }, []);
 
   const addHistoryEntry = useCallback((entry) => {
@@ -93,8 +144,8 @@ export function useSettings() {
   const resetAllData = useCallback(() => {
     setSettings(defaultSettings);
     setHistory([]);
-    window.localStorage.removeItem(SETTINGS_KEY);
-    window.localStorage.removeItem(HISTORY_KEY);
+    safeStorageRemove(SETTINGS_KEY);
+    safeStorageRemove(HISTORY_KEY);
   }, []);
 
   return {
