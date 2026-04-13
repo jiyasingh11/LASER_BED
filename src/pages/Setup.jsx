@@ -7,6 +7,7 @@ export default function Setup({ settings, saveSetup, onToast }) {
   const [topic, setTopic] = useState(settings.topic || "");
   const [patientName, setPatientName] = useState(settings.patientName || "");
   const [caretakerPhone, setCaretakerPhone] = useState(settings.caretakerPhone || "");
+  const [escalationPhone, setEscalationPhone] = useState(settings.escalationPhone || "");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(Boolean(settings.connectionVerified));
 
@@ -66,6 +67,7 @@ export default function Setup({ settings, saveSetup, onToast }) {
       topic: topic.trim(),
       patientName: patientName.trim(),
       caretakerPhone: caretakerPhone.trim(),
+      escalationPhone: escalationPhone.trim(),
       connectionVerified: isVerified
     });
 
@@ -110,10 +112,20 @@ export default function Setup({ settings, saveSetup, onToast }) {
             </label>
 
             <label className="block">
-              <span className="text-sm font-semibold text-elder-text">Caretaker Phone (Display Only)</span>
+              <span className="text-sm font-semibold text-elder-text">Caretaker Phone</span>
               <input
                 value={caretakerPhone}
                 onChange={(event) => setCaretakerPhone(event.target.value)}
+                placeholder="+91 98xx xxx xxx"
+                className="mt-2 w-full rounded-xl border border-elder-line bg-elder-panelSoft px-4 py-3 text-elder-text outline-none transition focus:border-red-500"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-semibold text-elder-text">Escalation Phone (Optional, for ringtone call)</span>
+              <input
+                value={escalationPhone}
+                onChange={(event) => setEscalationPhone(event.target.value)}
                 placeholder="+91 98xx xxx xxx"
                 className="mt-2 w-full rounded-xl border border-elder-line bg-elder-panelSoft px-4 py-3 text-elder-text outline-none transition focus:border-red-500"
               />

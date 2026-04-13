@@ -179,7 +179,7 @@ export default function Dashboard({
               <label className="flex items-center justify-between rounded-xl border border-elder-line bg-black/20 px-3 py-3">
                 <span>
                   <p className="font-semibold text-elder-text">Ringing Alarm Mode</p>
-                  <p className="text-xs text-elder-muted">Forces max priority and repeats every 10 seconds until acknowledged.</p>
+                  <p className="text-xs text-elder-muted">Forces max priority for stronger phone alert sound channels.</p>
                 </span>
                 <input
                   type="checkbox"
@@ -214,11 +214,30 @@ export default function Dashboard({
                   className="h-5 w-5 accent-red-500"
                 />
               </label>
+
+              <label className="flex items-center justify-between rounded-xl border border-elder-line bg-black/20 px-3 py-3">
+                <span>
+                  <p className="font-semibold text-elder-text">Phone Call Escalation</p>
+                  <p className="text-xs text-elder-muted">Use ntfy call for critical alerts to force real ringtone behavior.</p>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.phoneCallEscalation || false}
+                  onChange={(event) => updateSettings({ phoneCallEscalation: event.target.checked })}
+                  className="h-5 w-5 accent-red-500"
+                />
+              </label>
             </div>
 
             {repeatActive && (
               <p className="mt-3 rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
-                Repeat alarm is active. Ringing mode repeats every 10 seconds.
+                Repeat alarm is active. Alerts resend every 30 seconds until acknowledged.
+              </p>
+            )}
+
+            {settings.phoneCallEscalation && (
+              <p className="mt-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm text-sky-100">
+                Phone call escalation enabled. Critical alerts will attempt call-based ringtone.
               </p>
             )}
           </section>
@@ -227,6 +246,9 @@ export default function Dashboard({
             <h3 className="brand-font text-lg font-bold text-elder-text">Simulate Sensor Trigger</h3>
             <p className="mt-2 text-sm text-elder-muted">
               Use these controls to mimic Raspberry Pi laser sensor events.
+            </p>
+            <p className="mt-1 text-xs text-elder-muted">
+              Duplicate bed_exit/fall/inactivity alerts are suppressed until all_clear is sent.
             </p>
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <button

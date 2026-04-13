@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const ALERT_TYPES = ["bed_exit", "fall", "inactivity"];
 const DEFAULT_REPEAT_MS = 30000;
-const RINGING_MODE_REPEAT_MS = 10000;
 
 export const ALARM_PRESETS = {
   bed_exit: {
@@ -62,6 +61,11 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
 
   const repeatTimerRef = useRef(null);
   const repeatTypeRef = useRef(null);
+  const alertLatchRef = useRef({
+    bed_exit: false,
+    fall: false,
+    inactivity: false
+  });
 
   const stopRepeat = useCallback(() => {
     if (repeatTimerRef.current) {
@@ -75,6 +79,14 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
   useEffect(() => {
     return () => stopRepeat();
   }, [stopRepeat]);
+
+  const resetAlertLatch = useCallback(() => {
+    alertLatchRef.current = {
+      bed_exit: false,
+      fall: false,
+      inactivity: false
+    };
+  }, []);
 
   const sendPreset = useCallback(
     async (type, options = {}) => {
@@ -98,27 +110,47 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
       const priority = forceMaxPriority
         ? "max"
         : preset.priority;
+      const shouldEscalateCall =
+        isCriticalAlert &&
+        settings.phoneCallEscalation &&
+        !options.isRepeat;
+      const escalationPhone = (settings.escalationPhone || settings.caretakerPhone || "").trim();
+      const ntfyToken = (settings.ntfyAccessToken || "").trim();
 
       const title = options.isRepeat ? `${preset.title} (REPEAT)` : preset.title;
       const body = preset.body(patientName);
       const endpoint = `https://ntfy.sh/${encodeURIComponent(topic)}`;
       const tags = forceMaxPriority
-        ? `${preset.tags},alarm_clock`
+        ? `${preset.tags},alarm_clock,loudspeaker`
         : preset.tags;
+
+      if (shouldEscalateCall && (!escalationPhone || !ntfyToken) && !options.isRepeat) {
+        onToast?.({
+          type: "warning",
+          message: "Phone call escalation is enabled but token/phone is missing in Settings."
+        });
+      }
+
+      const headers = {
+        Title: title,
+        Priority: priority,
+        "X-Priority": priority,
+        Tags: tags,
+        Click: window.location.origin,
+        "Content-Type": "text/plain"
+      };
+
+      if (shouldEscalateCall && escalationPhone && ntfyToken) {
+        headers.Call = escalationPhone;
+        headers.Authorization = `Bearer ${ntfyToken}`;
+      }
 
       setIsSending(true);
 
       try {
         const response = await fetch(endpoint, {
           method: "POST",
-          headers: {
-            Title: title,
-            Priority: priority,
-            "X-Priority": priority,
-            Tags: tags,
-            Click: window.location.origin,
-            "Content-Type": "text/plain"
-          },
+          headers,
           body
         });
 
@@ -150,9 +182,13 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
               : "";
           const ringingHint =
             forceMaxPriority ? " (ringing mode active)" : "";
+          const callHint =
+            shouldEscalateCall && escalationPhone && ntfyToken
+              ? " (phone call escalation requested)"
+              : "";
           onToast?.({
             type: "success",
-            message: `${baseMessage}${lowPriorityHint}${ringingHint}`
+            message: `${baseMessage}${lowPriorityHint}${ringingHint}${callHint}`
           });
         }
 
@@ -189,7 +225,11 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
       onToast,
       settings.maxPriority,
       settings.patientName,
+      settings.phoneCallEscalation,
       settings.ringingMode,
+      settings.escalationPhone,
+      settings.caretakerPhone,
+      settings.ntfyAccessToken,
       settings.topic
     ]
   );
@@ -209,6 +249,14 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
 
   const sendAlarm = useCallback(
     async (type) => {
+      if (ALERT_TYPES.includes(type) && alertLatchRef.current[type]) {
+        onToast?.({
+          type: "info",
+          message: "Duplicate alert suppressed. Send All Clear before triggering this alert again."
+        });
+        return { ok: true, skipped: true, reason: "Duplicate alert suppressed" };
+      }
+
       const result = await sendPreset(type);
 
       if (!result.ok) {
@@ -216,29 +264,39 @@ export function useAlarm({ settings, addHistoryEntry, onToast }) {
       }
 
       if (ALERT_TYPES.includes(type)) {
+        alertLatchRef.current[type] = true;
         setAlertActive(true);
-        if (settings.repeatAlarm || settings.ringingMode) {
-          const repeatMs = settings.ringingMode
-            ? RINGING_MODE_REPEAT_MS
-            : DEFAULT_REPEAT_MS;
-          startRepeat(type, repeatMs);
+        if (settings.repeatAlarm && !settings.phoneCallEscalation) {
+          startRepeat(type, DEFAULT_REPEAT_MS);
         }
       }
 
       if (type === "all_clear") {
         stopRepeat();
         setAlertActive(false);
+        resetAlertLatch();
       }
 
       return result;
     },
-    [sendPreset, settings.repeatAlarm, settings.ringingMode, startRepeat, stopRepeat]
+    [
+      onToast,
+      resetAlertLatch,
+      sendPreset,
+      settings.repeatAlarm,
+      settings.phoneCallEscalation,
+      startRepeat,
+      stopRepeat
+    ]
   );
 
   const acknowledgeAlert = useCallback(() => {
     stopRepeat();
     setAlertActive(false);
-    onToast?.({ type: "info", message: "Alarm acknowledged. Repeat stopped." });
+    onToast?.({
+      type: "info",
+      message: "Alarm acknowledged. Repeat stopped. Next same alert is re-armed after All Clear."
+    });
   }, [onToast, stopRepeat]);
 
   const triggerFromQuery = useCallback(

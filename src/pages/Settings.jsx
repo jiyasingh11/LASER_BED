@@ -65,6 +65,13 @@ export default function Settings({
   const [topic, setTopic] = useState(settings.topic || "");
   const [patientName, setPatientName] = useState(settings.patientName || "");
   const [caretakerPhone, setCaretakerPhone] = useState(settings.caretakerPhone || "");
+  const [escalationPhone, setEscalationPhone] = useState(
+    settings.escalationPhone || settings.caretakerPhone || ""
+  );
+  const [ntfyAccessToken, setNtfyAccessToken] = useState(settings.ntfyAccessToken || "");
+  const [phoneCallEscalation, setPhoneCallEscalation] = useState(
+    settings.phoneCallEscalation || false
+  );
   const [sound, setSound] = useState(settings.preferredSound || "standard");
   const [ringingMode, setRingingMode] = useState(settings.ringingMode ?? true);
 
@@ -75,6 +82,9 @@ export default function Settings({
       topic: topic.trim(),
       patientName: patientName.trim(),
       caretakerPhone: caretakerPhone.trim(),
+      escalationPhone: escalationPhone.trim(),
+      ntfyAccessToken: ntfyAccessToken.trim(),
+      phoneCallEscalation,
       ringingMode,
       preferredSound: sound
     });
@@ -147,6 +157,27 @@ export default function Settings({
             </label>
 
             <label className="block">
+              <span className="text-sm font-semibold text-elder-text">Escalation Phone (for ringtone call)</span>
+              <input
+                value={escalationPhone}
+                onChange={(event) => setEscalationPhone(event.target.value)}
+                placeholder="+91xxxxxxxxxx"
+                className="mt-2 w-full rounded-xl border border-elder-line bg-elder-panelSoft px-4 py-3 text-elder-text outline-none transition focus:border-red-500"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-semibold text-elder-text">ntfy Access Token (for phone calls)</span>
+              <input
+                value={ntfyAccessToken}
+                onChange={(event) => setNtfyAccessToken(event.target.value)}
+                type="password"
+                placeholder="tk_xxxxxxxxx"
+                className="mt-2 w-full rounded-xl border border-elder-line bg-elder-panelSoft px-4 py-3 text-elder-text outline-none transition focus:border-red-500"
+              />
+            </label>
+
+            <label className="block">
               <span className="text-sm font-semibold text-elder-text">Notification Sound Preview</span>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <select
@@ -171,7 +202,7 @@ export default function Settings({
             <label className="flex items-center justify-between rounded-xl border border-elder-line bg-black/20 px-3 py-3">
               <span>
                 <p className="font-semibold text-elder-text">Ringing Alarm Mode</p>
-                <p className="text-xs text-elder-muted">Use max priority and frequent repeats for critical alerts.</p>
+                <p className="text-xs text-elder-muted">Use max priority for critical alerts (no automatic repeats).</p>
               </span>
               <input
                 type="checkbox"
@@ -180,6 +211,23 @@ export default function Settings({
                 className="h-5 w-5 accent-red-500"
               />
             </label>
+
+            <label className="flex items-center justify-between rounded-xl border border-elder-line bg-black/20 px-3 py-3">
+              <span>
+                <p className="font-semibold text-elder-text">Phone Call Escalation</p>
+                <p className="text-xs text-elder-muted">Triggers an ntfy phone call for critical alerts (actual ringtone).</p>
+              </span>
+              <input
+                type="checkbox"
+                checked={phoneCallEscalation}
+                onChange={(event) => setPhoneCallEscalation(event.target.checked)}
+                className="h-5 w-5 accent-red-500"
+              />
+            </label>
+
+            <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              Note: ntfy phone-call escalation requires verified phone and account token support on your ntfy plan.
+            </p>
 
             <div className="flex flex-wrap gap-3 pt-1">
               <button
